@@ -31,7 +31,7 @@ public class ProductManagement extends javax.swing.JPanel {
     private static HashMap<String, String> SCategorymap = new HashMap<>();
     private static HashMap<String, String> Potionmap = new HashMap<>();
 
-    private static String pidU;
+    private int previouslySelectedRow = -1;
 
     public ProductManagement() {
         initComponents();
@@ -603,8 +603,6 @@ public class ProductManagement extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "Please select Category", "Warning", JOptionPane.WARNING_MESSAGE);
             } else if (scategories.equals("Select")) {
                 JOptionPane.showMessageDialog(this, "Please select SubCategory", "Warning", JOptionPane.WARNING_MESSAGE);
-//            } else if (imgpath.isEmpty()) {
-//                JOptionPane.showMessageDialog(this, "Please select image", "Warning", JOptionPane.WARNING_MESSAGE);
             } else if (potion.equals("Select")) {
                 JOptionPane.showMessageDialog(this, "Please select Product Potion", "Warning", JOptionPane.WARNING_MESSAGE);
             } else if (price.isEmpty()) {
@@ -612,6 +610,27 @@ public class ProductManagement extends javax.swing.JPanel {
             }else if (cost.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter Product cost", "Warning", JOptionPane.WARNING_MESSAGE);
             } else {
+                double priceVal;
+                double costVal;
+
+                try {
+                     priceVal = Double.parseDouble(price); // Validate that price is numeric
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "Price must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                try {
+                    costVal = Double.parseDouble(cost); // Validate that cost is numeric
+                } catch (NumberFormatException e) {
+                    JOptionPane.showMessageDialog(this, "Cost must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if(priceVal < costVal) {
+                    JOptionPane.showMessageDialog(this, "Price must be greater than cost ", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
 
                 try {
                     ResultSet resultSet = MySQL.executeSearch("SELECT * FROM `product` WHERE `potion_id` = '" + potion + "'");
@@ -657,20 +676,63 @@ public class ProductManagement extends javax.swing.JPanel {
 
         int row = jTable1.getSelectedRow();
 
-        String Name = String.valueOf(jTable1.getValueAt(row, 3));
-        jTextField6.setText(Name);
+        // If clicking the same row again, deselect
+        if (row == previouslySelectedRow) {
+            jTable1.clearSelection();
+            previouslySelectedRow = -1;
+
+            // Clear fields
+            jTextField6.setText("");
+            jTextField7.setText("");
+            jTextField8.setText("");
+
+            jComboBox4.setSelectedIndex(0);
+            jComboBox4.setEnabled(true);
+
+            jComboBox5.setSelectedIndex(0);
+            jComboBox5.setEnabled(true);
+
+            jComboBox6.setSelectedIndex(0);
+            jComboBox6.setEnabled(true);
+
+            jButton12.setEnabled(true);
+
+            return; // Skip the rest of the code
+        }
+
+        // Else, normal select
+        previouslySelectedRow = row;
+
+        String name = String.valueOf(jTable1.getValueAt(row, 3));
+        jTextField6.setText(name);
 
         String pid = String.valueOf(jTable1.getValueAt(row, 0));
 
-        String Price = String.valueOf(jTable1.getValueAt(row, 5));
-        jTextField7.setText(Price);
+        String price = String.valueOf(jTable1.getValueAt(row, 5));
+        jTextField7.setText(price);
 
         String cost = String.valueOf(jTable1.getValueAt(row, 6));
         jTextField8.setText(cost);
         
-        String SCategory = String.valueOf(jTable1.getValueAt(row, 2));
-        jComboBox4.setSelectedItem(SCategory);
+        String sCategory = String.valueOf(jTable1.getValueAt(row, 2));
+        jComboBox4.setSelectedItem(sCategory);
         jComboBox4.setEnabled(false);
+
+        try {
+            StringBuilder query = new StringBuilder("SELECT * FROM `main_category` INNER JOIN `sub_category` ON `sub_category`.`main_category_id` = `main_category`.`id` WHERE `sub_category` = '" + sCategory + "' ");
+            ResultSet resultSet = MySQL.executeSearch(query.toString());
+            if (resultSet.next()) {
+                String category = String.valueOf(resultSet.getString("category"));
+                jComboBox5.setSelectedItem(category);
+                jComboBox5.setEnabled(false);
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
+
 
         String Potion = String.valueOf(jTable1.getValueAt(row, 4));
         jComboBox6.setSelectedItem(Potion);
@@ -690,29 +752,16 @@ public class ProductManagement extends javax.swing.JPanel {
 
                 if (rsc.next()) {
 
-                    jComboBox4.setSelectedIndex(rsc.getInt("id"));
-                    //jComboBox4.setEnabled(false);
-
                     String c = rsc.getString("main_category_id");
 
                     ResultSet rc = MySQL.executeSearch("SELECT `id` FROM `main_category` WHERE `id` = '" + c + "' ");
 
                     if (rc.next()) {
-
                         jComboBox5.setSelectedIndex(rc.getInt("id"));
                         jComboBox5.setEnabled(false);
-                    } else {
-//                        System.out.println("onn okai prashne");
                     }
-
-                } else {
-//                    System.out.println("onn okai prashne2");
                 }
-
-            } else {
-//                System.out.println("onn okai prashne1");
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -724,9 +773,6 @@ public class ProductManagement extends javax.swing.JPanel {
         String name = jTextField6.getText();
         String price = jTextField7.getText();
         String cost = jTextField8.getText();
-        String categories = String.valueOf(jComboBox5.getSelectedItem());
-        String scategories = String.valueOf(jComboBox4.getSelectedItem());
-        String potion = String.valueOf(jComboBox6.getSelectedItem());
 
         if (name.isEmpty() && price.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please provide either a Product Name or Price to update.", "Warning", JOptionPane.WARNING_MESSAGE);
@@ -734,7 +780,7 @@ public class ProductManagement extends javax.swing.JPanel {
             try {
                 // Dynamically build the UPDATE query
                 StringBuilder query = new StringBuilder("UPDATE `product` SET ");
-                boolean hasName = false, hasPrice = false, hascost = false; 
+                boolean hasName = false, hasPrice = false, hasCost = false;
 
                 if (!name.isEmpty()) {
                     query.append("`item_name` = ?");
@@ -749,11 +795,11 @@ public class ProductManagement extends javax.swing.JPanel {
                 }
                 
                 if (!cost.isEmpty()) {
-                    if (hasName) {
+                    if (hasPrice) {
                         query.append(", "); // Add comma if both fields are being updated
                     }
                     query.append("`cost` = ?");
-                    hasPrice = true;
+                    hasCost = true;
                 }
 
                 query.append(" WHERE `id` = ?");
@@ -765,9 +811,11 @@ public class ProductManagement extends javax.swing.JPanel {
                 if (hasName) {
                     ps.setString(paramIndex++, name); // Set item_name parameter
                 }
+                double priceVal = 0;
+                double costVal = 0;
                 if (hasPrice) {
                     try {
-                        Double.parseDouble(price); // Validate that price is numeric
+                        priceVal = Double.parseDouble(price); // Validate that price is numeric
                         ps.setString(paramIndex++, price); // Set price parameter
                     } catch (NumberFormatException e) {
                         JOptionPane.showMessageDialog(this, "Price must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -775,14 +823,19 @@ public class ProductManagement extends javax.swing.JPanel {
                     }
                 }
                 
-                if (hascost) {
+                if (hasCost) {
                     try {
-                        Double.parseDouble(cost); // Validate that price is numeric
+                        costVal = Double.parseDouble(cost); // Validate that price is numeric
                         ps.setString(paramIndex++, cost); // Set price parameter
                     } catch (NumberFormatException e) {
-                        JOptionPane.showMessageDialog(this, "cost must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Cost must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
                         return;
                     }
+                }
+
+                if(priceVal < costVal) {
+                    JOptionPane.showMessageDialog(this, "Price must be greater than cost ", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
                 }
                 
                 ps.setString(paramIndex, id); // Set id parameter
@@ -816,7 +869,7 @@ public class ProductManagement extends javax.swing.JPanel {
         if (selectedRow >= 0) {
             String itemName = jTable1.getValueAt(selectedRow, 3).toString();
 
-            String status = jTable1.getValueAt(selectedRow, 6).toString(); // Column index 7 should be Status
+            String status = jTable1.getValueAt(selectedRow, 7).toString(); // Column index 8 should be Status
 
             int newStatusId;
             String newStatus;
@@ -829,7 +882,7 @@ public class ProductManagement extends javax.swing.JPanel {
                 newStatus = "Active";
             }
 
-            jTable1.setValueAt(newStatus, selectedRow, 6); // Update the status in the table
+            jTable1.setValueAt(newStatus, selectedRow, 7); // Update the status in the table
 
             // Update the status_id in the database
             try {
@@ -894,6 +947,7 @@ public class ProductManagement extends javax.swing.JPanel {
         jTextField6.setText("");
         jLabel2.setText("");
         jTextField7.setText("");
+        jTextField8.setText("");
         jComboBox5.setSelectedIndex(0);
         jComboBox4.setSelectedIndex(0);
         jComboBox6.setSelectedIndex(0);

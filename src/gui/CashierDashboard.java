@@ -843,13 +843,20 @@ public class CashierDashboard extends javax.swing.JFrame {
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
 
-try {
+        try {
             String invoiceId = jTextField3.getText();
             String datetime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
             String paidAmount = jFormattedTextField2.getText();
             String paymentMethodId = paymentMethodMap.get(String.valueOf(jComboBox1.getSelectedItem()));
             String total = jLabel26.getText();
             String service = jLabel28.getText();
+
+            try{
+                Double.parseDouble(paidAmount);
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Payment must be a numeric value.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             MySQL.executeIUD("INSERT INTO `invoice` (`id`,`date`,`paid_amount`, `total`, `s_chj`, `payment_method_id`)"
                     + "VALUES ('" + invoiceId + "', '" + datetime + "', '" + paidAmount + "', '" + total + "', '" + service + "','" + paymentMethodId + "')");
